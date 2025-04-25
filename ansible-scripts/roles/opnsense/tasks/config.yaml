@@ -1,0 +1,106 @@
+---
+- name: Appliquer les règles de pare-feu sur OPNsense
+  hosts: localhost
+  gather_facts: no
+
+  vars:
+    # Remplace par tes vraies clés (ou utilise Ansible Vault)
+    api_key: "U6sRNtnXs/09XNt02NmI69+IMCTq/AmpVgQflrSoLsiwm7GcoZ4md1sZKO9sQDxLva+24142FVEDu3g"
+    api_secret: "vCEgoLk7iUwi2YhFxcKpQag4huxDPPMu6dx0g7FJNVK+J1TgbVhKxCMr17sfQ09ht4s-kYlXqVe8jnpKA"
+    opnsense_host: "https://192.168.3.2/api"
+
+    firewall_rules:
+      # Admin -> DMZ
+      - interface: "OPT3"
+        source: "192.168.7.0/24"
+        destination: "192.168.4.0/24"
+        action: "pass"
+        description: "Admin vers DMZ"
+
+      # Admin -> Client
+      - interface: "OPT3"
+        source: "192.168.7.0/24"
+        destination: "192.168.6.0/24"
+        action: "pass"
+        description: "Admin vers Client"
+
+      # Admin -> LAN OPNsense (techniquement pas nécessaire mais autorisé ici)
+      - interface: "OPT3"
+        source: "192.168.7.0/24"
+        destination: "192.168.3.0/24"
+        action: "pass"
+        description: "Admin vers LAN Admin"
+
+      # DMZ -> Admin
+      - interface: "OPT1"
+        source: "192.168.4.0/24"
+        destination: "192.168.7.0/24"
+        action: "block"
+        description: "DMZ vers Admin (bloqué)"
+
+      # DMZ -> Client
+      - interface: "OPT1"
+        source: "192.168.4.0/24"
+        destination: "192.168.6.0/24"
+        action: "block"
+        description: "DMZ vers Client (bloqué)"
+
+      # DMZ -> LAN Admin
+      - interface: "OPT1"
+        source: "192.168.4.0/24"
+        destination: "192.168.3.0/24"
+        action: "block"
+        description: "DMZ vers LAN Admin (bloqué)"
+
+      # Client -> Admin
+      - interface: "OPT2"
+        source: "192.168.6.0/24"
+        destination: "192.168.7.0/24"
+        action: "block"
+        description: "Client vers Admin (bloqué)"
+
+      # Client -> DMZ
+      - interface: "OPT2"
+        source: "192.168.6.0/24"
+        destination: "192.168.4.0/24"
+        action: "pass"
+        description: "Client vers DMZ"
+
+      # Client -> LAN Admin
+      - interface: "OPT2"
+        source: "192.168.6.0/24"
+        destination: "192.168.3.0/24"
+        action: "block"
+        description: "Client vers LAN Admin (bloqué)"
+
+  tasks:
+    - name: Ajouter les règles via API OPNsense
+      uri:
+        url: "{{ opnsense_host }}/firewall/rule"
+        method: POST
+        user: "{{ api_key }}"
+        password: "{{ api_secret }}"
+        force_basic_auth: yes
+        validate_certs: no
+        body_format: json
+        headers:
+          Content-Type: "application/json"
+        body: |
+          {
+            "rule": {
+              "interface": "{{ item.interface }}",
+              "protocol": "any",
+              "source": { "net": "{{ item.source }}" },
+              "destination": { "net": "{{ item.destination }}" },
+              "action": "{{ item.action }}",
+              "log": true,
+              "enabled": true,
+              "description": "{{ item.description }}"
+            }
+          }
+      loop: "{{ firewall_rules }}"
+      register: result
+
+    - name: Afficher le résultat de chaque ajout
+      debug:
+        var: result
