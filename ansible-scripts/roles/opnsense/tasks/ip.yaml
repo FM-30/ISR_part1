@@ -1,0 +1,54 @@
+---
+- name: Configuration des interfaces réseau sur OPNsense
+  hosts: localhost
+  gather_facts: no
+
+  vars:
+    api_key: "U6sRNtnXs/09XNt02NmI69+IMCTq/AmpVgQflrSoLsiwm7GcoZ4md1sZKO9sQDxLva+24142FVEDu3g"
+    api_secret: "vCEgoLk7iUwi2YhFxcKpQag4huxDPPMu6dx0g7FJNVK+J1TgbVhKxCMr17sfQ09ht4s-kYlXqVe8jnpKA"
+    opnsense_host: "https://192.168.3.2/api"
+
+    interfaces_config:
+      - name: "lan"
+        ip: "192.168.5.1"
+        mask: "24"
+      - name: "opt1"
+        ip: "192.168.4.1"
+        mask: "24"
+      - name: "opt2"
+        ip: "192.168.6.1"
+        mask: "24"
+      - name: "opt3"
+        ip: "192.168.7.1"
+        mask: "24"
+      - name: "opt0"
+        ip: "192.168.3.2"
+        mask: "24"
+
+  tasks:
+    - name: Appliquer la configuration IP sur chaque interface
+      uri:
+        url: "{{ opnsense_host }}/interface/set"
+        method: POST
+        user: "{{ api_key }}"
+        password: "{{ api_secret }}"
+        force_basic_auth: yes
+        validate_certs: no
+        headers:
+          Content-Type: "application/json"
+        body_format: json
+        body: |
+          {
+            "interface": "{{ item.name }}",
+            "if": {
+              "ipaddr": "{{ item.ip }}",
+              "subnet": "{{ item.mask }}",
+              "type": "static"
+            }
+          }
+      loop: "{{ interfaces_config }}"
+      register: result
+
+    - name: Afficher les résultats
+      debug:
+        var: result
